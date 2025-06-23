@@ -8,19 +8,36 @@ RUN groupadd -g ${GID} -o ${UNAME}
 RUN useradd -m -u ${UID} -g ${GID} -o -s /bin/bash ${UNAME}
 RUN usermod -aG sudo ${UNAME}
 RUN echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
-USER ${UNAME}
-
-# Create a custom ros2 overlay workspace and workspace for exercises
-ENV ROS2_WS=/home/user/ros2_ws
-RUN mkdir -p ${ROS2_WS}/src
-ENV EXERCISES_WS=/home/user/exercises_ws
-RUN mkdir -p $EXERCISES_WS/src
 
 # Disable terminal interaction for apt
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Make default shell in Dockerfile bash instead of sh
 SHELL ["/bin/bash", "-c"]
+
+# Install TigerVNC and desktop environment as root
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    xfce4 \
+    xfce4-goodies \
+    tigervnc-standalone-server \
+    tigervnc-common \
+    tigervnc-tools \
+    fonts-dejavu-core \
+    fonts-liberation2 \
+    dbus-x11 \
+    x11-apps \
+    firefox \
+    && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create directories as root
+ENV ROS2_WS=/home/user/ros2_ws
+ENV EXERCISES_WS=/home/user/exercises_ws
+RUN mkdir -p ${ROS2_WS}/src ${EXERCISES_WS}/src && \
+    chown -R ${UNAME}:${UNAME} /home/user
+
+# Switch to user for remaining operations
+USER ${UNAME}
 
 # Copy andino requirement files and install dependencies
 COPY docker/andino_requirements.txt .
@@ -64,17 +81,25 @@ RUN cd ${EXERCISES_WS}/src && \
     sudo rm -rf /var/lib/apt/lists/* && \
     colcon build --symlink-install
 
+# Setup VNC configuration
+RUN mkdir -p /home/user/.vnc && \
+    echo '#!/bin/bash\nxrdb $HOME/.Xresources\nstartxfce4 &' > /home/user/.vnc/xstartup && \
+    chmod +x /home/user/.vnc/xstartup && \
+    echo 'session=xfce4\ngeometry=1920x1080\nlocalhost=no\nalwaysshared' > /home/user/.vnc/config
+
 # Source ROS workspace automatically when new terminal is opened
-RUN sudo echo ". /opt/ros/${ROS_DISTRO}/setup.bash" >> ~/.bashrc && \
-    sudo echo ". ${EXERCISES_WS}/install/setup.bash" >> ~/.bashrc && \
-    sudo echo ". ${ROS2_WS}/install/setup.bash" >> ~/.bashrc
+RUN echo ". /opt/ros/${ROS_DISTRO}/setup.bash" >> ~/.bashrc && \
+    echo ". ${EXERCISES_WS}/install/setup.bash" >> ~/.bashrc && \
+    echo ". ${ROS2_WS}/install/setup.bash" >> ~/.bashrc
 
 WORKDIR /home/user/exercises_ws
 
-# Source ROS in the main terminal
+# Copy startup scripts
 COPY docker/ros_entrypoint.sh /ros_entrypoint.sh
+COPY docker/vnc_startup.sh /vnc_startup.sh
+RUN sudo chmod +x /ros_entrypoint.sh /vnc_startup.sh
 
 # Source ROS in the main terminal
 ENTRYPOINT ["/ros_entrypoint.sh"]
 
-CMD ["bash"]
+CMD ["/vnc_startup.sh"]
