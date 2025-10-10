@@ -23,6 +23,17 @@ All the practical coding exercises are done in Python.
 
 <img src="images/autonomous_navigation.gif" alt="drawing" width="1200"/>
 
+## Setup
+
+Before starting the exercises, you need to clone the required `andino_gz` package:
+
+```bash
+cd packages
+git clone --depth 1 https://github.com/Ekumen-OS/andino_gz.git -b 0.1.1
+```
+
+The `packages/` directory contains ROS 2 packages that are mounted into the Docker container, allowing for development without rebuilding the Docker image.
+
 ## Exercises
 
 This repository contains a set of exercises to learn the core concepts taught over the course through practical demos and coding exercises. 

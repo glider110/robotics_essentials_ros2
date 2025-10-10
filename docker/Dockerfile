@@ -45,17 +45,7 @@ RUN sudo apt-get update && \
 # Install andino_gz and other packages with their dependencies
 COPY ./packages/ ${ROS2_WS}/src
 
-# Configure git for better network handling
-RUN git config --global http.version HTTP/1.1 && \
-    git config --global http.postBuffer 1048576000 && \
-    git config --global http.lowSpeedLimit 0 && \
-    git config --global http.lowSpeedTime 999999
-
-# Clone andino_gz repository with retry mechanism
-RUN cd ${ROS2_WS}/src && \
-    for i in 1 2 3; do \
-        git clone --depth 1 https://github.com/Ekumen-OS/andino_gz.git -b 0.1.1 && break || sleep 10; \
-    done
+# Note: andino_gz package should be mounted from host packages/ directory
 
 # Install dependencies and build
 RUN sudo apt-get update && \
@@ -81,7 +71,7 @@ RUN echo ". /opt/ros/${ROS_DISTRO}/setup.bash" >> ~/.bashrc && \
     echo "if [ -f ${EXERCISES_WS}/install/setup.bash ]; then . ${EXERCISES_WS}/install/setup.bash; fi" >> ~/.bashrc && \
     echo ". ${ROS2_WS}/install/setup.bash" >> ~/.bashrc
 
-WORKDIR /home/user/exercises_ws
+WORKDIR /home/user/ros2_ws
 
 # Source ROS in the main terminal
 COPY docker/ros_entrypoint.sh /ros_entrypoint.sh
