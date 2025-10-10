@@ -44,30 +44,42 @@ RUN sudo apt-get update && \
 
 # Install andino_gz and other packages with their dependencies
 COPY ./packages/ ${ROS2_WS}/src
+
+# Configure git for better network handling
+RUN git config --global http.version HTTP/1.1 && \
+    git config --global http.postBuffer 1048576000 && \
+    git config --global http.lowSpeedLimit 0 && \
+    git config --global http.lowSpeedTime 999999
+
+# Clone andino_gz repository with retry mechanism
 RUN cd ${ROS2_WS}/src && \
-    git clone https://github.com/Ekumen-OS/andino_gz.git -b 0.1.1 && \
-    sudo apt-get update && \
+    for i in 1 2 3; do \
+        git clone --depth 1 https://github.com/Ekumen-OS/andino_gz.git -b 0.1.1 && break || sleep 10; \
+    done
+
+# Install dependencies and build
+RUN sudo apt-get update && \
     . /opt/ros/${ROS_DISTRO}/setup.bash && \
-    cd .. && \
+    cd ${ROS2_WS} && \
     rosdep update && rosdep install --from-paths src --ignore-src -r -y --rosdistro ${ROS_DISTRO} && \
     sudo apt-get clean && \
     sudo rm -rf /var/lib/apt/lists/* && \
     colcon build --symlink-install
 
 # Build exercises_ws
-RUN cd ${EXERCISES_WS}/src && \
-    sudo apt-get update && \
-    . /opt/ros/${ROS_DISTRO}/setup.bash && \
-    cd .. && \
-    rosdep update && rosdep install --from-paths src --ignore-src -r -y --rosdistro ${ROS_DISTRO} && \
-    sudo apt-get clean && \
-    sudo rm -rf /var/lib/apt/lists/* && \
-    colcon build --symlink-install
+# RUN cd ${EXERCISES_WS}/src && \
+#     sudo apt-get update && \
+#     . /opt/ros/${ROS_DISTRO}/setup.bash && \
+#     cd .. && \
+#     rosdep update && rosdep install --from-paths src --ignore-src -r -y --rosdistro ${ROS_DISTRO} && \
+#     sudo apt-get clean && \
+#     sudo rm -rf /var/lib/apt/lists/* && \
+#     colcon build --symlink-install
 
 # Source ROS workspace automatically when new terminal is opened
-RUN sudo echo ". /opt/ros/${ROS_DISTRO}/setup.bash" >> ~/.bashrc && \
-    sudo echo ". ${EXERCISES_WS}/install/setup.bash" >> ~/.bashrc && \
-    sudo echo ". ${ROS2_WS}/install/setup.bash" >> ~/.bashrc
+RUN echo ". /opt/ros/${ROS_DISTRO}/setup.bash" >> ~/.bashrc && \
+    echo "if [ -f ${EXERCISES_WS}/install/setup.bash ]; then . ${EXERCISES_WS}/install/setup.bash; fi" >> ~/.bashrc && \
+    echo ". ${ROS2_WS}/install/setup.bash" >> ~/.bashrc
 
 WORKDIR /home/user/exercises_ws
 

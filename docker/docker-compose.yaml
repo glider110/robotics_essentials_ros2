@@ -15,6 +15,9 @@ services:
     volumes:
       - $HOME/exercises_ws/src:/home/user/exercises_ws/src
       - /tmp/.X11-unix:/tmp/.X11-unix
+      - /dev/dri:/dev/dri
+    devices:
+      - /dev/dri:/dev/dri
     environment:
       #- NVIDIA_VISIBLE_DEVICES=all # Makes all NVIDIA devices visible to the container
       #- NVIDIA_DRIVER_CAPABILITIES=all # Grants all NVIDIA driver capabilities to the container
