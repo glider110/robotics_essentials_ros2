@@ -13,8 +13,7 @@ USER ${UNAME}
 # Create a custom ros2 overlay workspace and workspace for exercises
 ENV ROS2_WS=/home/user/ros2_ws
 RUN mkdir -p ${ROS2_WS}/src
-ENV EXERCISES_WS=/home/user/exercises_ws
-RUN mkdir -p $EXERCISES_WS/src
+
 
 # Disable terminal interaction for apt
 ENV DEBIAN_FRONTEND=noninteractive
@@ -56,19 +55,9 @@ RUN sudo apt-get update && \
     sudo rm -rf /var/lib/apt/lists/* && \
     colcon build --symlink-install
 
-# Build exercises_ws
-# RUN cd ${EXERCISES_WS}/src && \
-#     sudo apt-get update && \
-#     . /opt/ros/${ROS_DISTRO}/setup.bash && \
-#     cd .. && \
-#     rosdep update && rosdep install --from-paths src --ignore-src -r -y --rosdistro ${ROS_DISTRO} && \
-#     sudo apt-get clean && \
-#     sudo rm -rf /var/lib/apt/lists/* && \
-#     colcon build --symlink-install
 
 # Source ROS workspace automatically when new terminal is opened
 RUN echo ". /opt/ros/${ROS_DISTRO}/setup.bash" >> ~/.bashrc && \
-    echo "if [ -f ${EXERCISES_WS}/install/setup.bash ]; then . ${EXERCISES_WS}/install/setup.bash; fi" >> ~/.bashrc && \
     echo ". ${ROS2_WS}/install/setup.bash" >> ~/.bashrc
 
 WORKDIR /home/user/ros2_ws
