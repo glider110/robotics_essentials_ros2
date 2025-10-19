@@ -21,6 +21,21 @@ NC='\033[0m' # No Color
 
 echo -e "${BLUE}=== 保存Docker容器为新镜像脚本 ===${NC}"
 
+# 显示当前Docker环境信息
+echo -e "${BLUE}=== 当前Docker环境信息 ===${NC}"
+
+# 显示所有运行中的容器
+echo -e "${YELLOW}运行中的容器:${NC}"
+docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}" | head -10
+
+echo ""
+
+# 显示相关镜像信息
+echo -e "${YELLOW}相关镜像:${NC}"
+docker images | grep -E "(REPOSITORY|robotics_essentials|^<none>)" | head -10
+
+echo ""
+
 # 检查容器是否正在运行
 echo -e "${YELLOW}检查容器状态...${NC}"
 if ! docker ps | grep -q $CONTAINER_NAME; then
@@ -34,6 +49,31 @@ echo -e "${GREEN}容器 '$CONTAINER_NAME' 正在运行${NC}"
 # 获取容器ID
 CONTAINER_ID=$(docker ps --filter "name=$CONTAINER_NAME" --format "{{.ID}}")
 echo -e "${BLUE}容器ID: $CONTAINER_ID${NC}"
+
+# 显示容器详细信息
+echo -e "${YELLOW}=== 容器详细信息 ===${NC}"
+CURRENT_IMAGE=$(docker inspect $CONTAINER_ID --format='{{.Config.Image}}')
+CONTAINER_CREATED=$(docker inspect $CONTAINER_ID --format='{{.Created}}' | cut -d'T' -f1)
+CONTAINER_SIZE=$(docker exec $CONTAINER_ID du -sh /home/user 2>/dev/null | cut -f1 || echo "N/A")
+
+echo -e "${BLUE}当前镜像: ${CURRENT_IMAGE}${NC}"
+echo -e "${BLUE}创建日期: ${CONTAINER_CREATED}${NC}"
+echo -e "${BLUE}用户目录大小: ${CONTAINER_SIZE}${NC}"
+
+# 检查是否有未提交的更改
+if docker exec $CONTAINER_ID test -d /home/user/workspace/.git 2>/dev/null; then
+    echo -e "${YELLOW}Git状态检查:${NC}"
+    GIT_STATUS=$(docker exec $CONTAINER_ID bash -c "cd /home/user/workspace && git status --porcelain" 2>/dev/null || echo "")
+    if [ -n "$GIT_STATUS" ]; then
+        echo -e "${YELLOW}⚠️  检测到未提交的更改:${NC}"
+        echo "$GIT_STATUS" | head -5
+        [ $(echo "$GIT_STATUS" | wc -l) -gt 5 ] && echo "   ..."
+    else
+        echo -e "${GREEN}✓ 工作区干净${NC}"
+    fi
+fi
+
+echo ""
 
 # 询问用户是否确认保存
 echo -e "${YELLOW}即将保存容器为新镜像: $NEW_IMAGE_NAME:$NEW_IMAGE_TAG${NC}"
@@ -51,10 +91,21 @@ docker commit $CONTAINER_ID $NEW_IMAGE_NAME:$NEW_IMAGE_TAG
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ 镜像保存成功: $NEW_IMAGE_NAME:$NEW_IMAGE_TAG${NC}"
     
+    # 显示新镜像详细信息
+    echo -e "${YELLOW}=== 新镜像信息 ===${NC}"
+    NEW_IMAGE_ID=$(docker images --format "{{.ID}}" $NEW_IMAGE_NAME:$NEW_IMAGE_TAG)
+    NEW_IMAGE_SIZE=$(docker images --format "{{.Size}}" $NEW_IMAGE_NAME:$NEW_IMAGE_TAG)
+    NEW_IMAGE_CREATED=$(docker images --format "{{.CreatedAt}}" $NEW_IMAGE_NAME:$NEW_IMAGE_TAG)
+    
+    echo -e "${BLUE}镜像ID: ${NEW_IMAGE_ID}${NC}"
+    echo -e "${BLUE}镜像大小: ${NEW_IMAGE_SIZE}${NC}"
+    echo -e "${BLUE}创建时间: ${NEW_IMAGE_CREATED}${NC}"
+    
     # 清理悬空镜像 (dangling images)
     echo -e "${YELLOW}清理悬空镜像...${NC}"
     DANGLING_IMAGES=$(docker images -f "dangling=true" -q)
     if [ ! -z "$DANGLING_IMAGES" ]; then
+        echo -e "${BLUE}清理的悬空镜像: ${DANGLING_IMAGES}${NC}"
         docker rmi $DANGLING_IMAGES
         echo -e "${GREEN}✓ 已清理悬空镜像${NC}"
     else
@@ -123,9 +174,15 @@ else
     echo -e "  - $COMPOSE_SAVED_FILE (新配置)"
 fi
 
-# 显示镜像信息
-echo -e "${BLUE}=== 镜像信息 ===${NC}"
-docker images | grep -E "(REPOSITORY|$NEW_IMAGE_NAME)"
+# 显示最终镜像状态
+echo -e "${BLUE}=== 最终Docker环境状态 ===${NC}"
+
+echo -e "${YELLOW}所有镜像 (按大小排序):${NC}"
+docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}\t{{.CreatedAt}}" | grep -E "(REPOSITORY|robotics_essentials|<none>)" | head -10
+
+echo ""
+echo -e "${YELLOW}磁盘使用情况:${NC}"
+docker system df
 
 echo -e "${GREEN}=== 操作完成 ===${NC}"
 echo -e "${BLUE}下次启动容器请使用:${NC}"
@@ -136,7 +193,10 @@ else
 fi
 
 echo -e "${YELLOW}💡 镜像管理提示:${NC}"
-echo -e "  清理所有悬空镜像: ${BLUE}docker image prune${NC}"
+echo -e "  查看所有镜像: ${BLUE}docker images${NC}"
+echo -e "  清理悬空镜像: ${BLUE}docker image prune${NC}"
+echo -e "  清理未使用镜像: ${BLUE}docker image prune -a${NC}"
+echo -e "  系统清理: ${BLUE}docker system prune${NC}"
 echo -e "  清理所有未使用镜像: ${BLUE}docker image prune -a${NC}"
 echo -e "  查看镜像大小: ${BLUE}docker images --format \"table {{.Repository}}\\t{{.Tag}}\\t{{.Size}}\"${NC}"
 echo -e "  删除特定镜像: ${BLUE}docker rmi <镜像ID或名称>${NC}"
