@@ -1,9 +1,10 @@
 services:
   robotics_essentials_ros2:
-    image: robotics_essentials_ros2
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
+    image: robotics_essentials_ros2_saved:latest
+    # build 配置已注释，现在直接使用保存的镜像
+    # build:
+    #   context: ..
+    #   dockerfile: docker/Dockerfile
     container_name: robotics_essentials_ros2
     stop_signal: SIGINT
     network_mode: host
@@ -13,7 +14,7 @@ services:
     tty: true
     user: user
     volumes:
-      - ./packages:/home/user/ros2_ws/src/packages
+      - ../packages:/home/user/ros2_ws/src
       - /tmp/.X11-unix:/tmp/.X11-unix
       - /dev/dri:/dev/dri
     devices:
